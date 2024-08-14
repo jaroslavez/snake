@@ -13,6 +13,10 @@ export default function Home({data}) {
 
     let snake, controller;
 
+    let isButtonPressed = false;
+
+    let animationFrameID = null;
+
     (async () => {
       const THREE = await import("three");
       const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
@@ -40,8 +44,24 @@ export default function Home({data}) {
       canvasRef.current.addEventListener("click", (e) => e.target.focus());
       controller = new InputController(structuredClone(actionsToBind), canvasRef.current);
       canvasRef.current.addEventListener("input-controller:action-activated", (e) => {
-        snake.changeDirection(e.detail.nameAction);
+        if(isButtonPressed)
+          return;
+        isButtonPressed = true;
+        animateRotation(e);
+        
       });
+      canvasRef.current.addEventListener("input-controller:action-deactivated", (e) => {
+        isButtonPressed = false;
+        cancelAnimationFrame(animationFrameID);
+      });
+
+      function animateRotation(e){
+        animationFrameID = requestAnimationFrame(() => animateRotation(e));
+        if(!isButtonPressed){
+          return;
+        }
+        snake.changeDirection(e.detail.nameAction);
+      }
       
     })();
 

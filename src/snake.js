@@ -1,5 +1,3 @@
-import { mutuallyExclusive } from "./mutuallyExclusive";
-
 export class Snake {
     //ThreeJS variables
     renderer = null;
@@ -24,6 +22,8 @@ export class Snake {
 
     cylinderHeight = null;
 
+    headGroup = null;
+
     //animations variables
 
     animationComplete = true;
@@ -45,13 +45,9 @@ export class Snake {
         
         //Биндинги
         this.animationLoop = this.animationLoop.bind(this);
-        //this.handleClick = this.handleClick.bind(this);
         this.initScene = this.initScene.bind(this);
         this.initSnake = this.initSnake.bind(this);
         this.changeDirection = this.changeDirection.bind(this);
-
-        //Навешивание обработчиков
-        //canvas.addEventListener( 'click', this.handleClick );
 
     }
 
@@ -60,8 +56,6 @@ export class Snake {
         this.scene.background = new THREE.Color( 'lightblue' );
 
         this.camera.position.set( 0, 0, 100 );
-        //this.camera.up.set( 0, 1, 0 );
-        //this.camera.lookAt( 0, 0, 0 );
         this.camera.zoom = 0.01;
         this.camera.updateProjectionMatrix();
 
@@ -87,8 +81,6 @@ export class Snake {
 			side: THREE.DoubleSide,
 		} );
 		const ground = new THREE.Mesh( planeGeo, planeMat );
-		//ground.rotation.x = Math.PI * -.5;
-        //ground.position.y = -1000;
         ground.scale.set(10, 10)
 		this.scene.add( ground );
 
@@ -108,7 +100,6 @@ export class Snake {
         const radiusHead = 5 * scale;
         let geometry = new THREE.SphereGeometry(radiusHead, 15, 15);
         geometry.translate(0, radiusHead, 0);
-        //let material =  new THREE.MeshBasicMaterial({color: 0x44aa88});
         
         let material = new THREE.ShaderMaterial({
           uniforms: this.uniforms,
@@ -119,28 +110,19 @@ export class Snake {
         let head = new THREE.Mesh(geometry, material);
         this.head = head;
         
-        head.position.z = 10 * scale;
-        head.position.y = radiusHead * 2;
+        head.position.y = radiusHead * scale;
+        head.position.z = -radiusHead;
+        this.headGroup = new THREE.Group();
+        this.headGroup.add(head);
+        this.headGroup.position.z = 10 * scale;
+
+        head.rotateX(Math.PI / 2);
+        head.rotateY(Math.PI)
         
-        this.headGroup = head;
-        const sphereAxis = new THREE.AxesHelper(20);
-        head.add(sphereAxis);
+        this.scene.add(this.headGroup);
 
-        //head.position.y = radiusHead;
-        //headGroup.rotation.z = Math.PI / 2;
-        //const sphereAxis = new THREE.AxesHelper(20);
-        //headGroup.add(sphereAxis);
-
-        //cube.rotation.y = 1.6 * Math.PI;
-        //cube.rotation.x = 1.6 * Math.PI;
-        //cube.scale.set(100, 100, 100)
-
-        
-
-        this.scene.add(head);
-
-        let previousPartOfBody = head;
-        this.objectOfBody.push(head);
+        let previousPartOfBody = this.head;
+        this.objectOfBody.push(this.headGroup);
 
         this.cylinderHeight = 10 * scale;
 
@@ -148,8 +130,6 @@ export class Snake {
             const geometry = new THREE.CylinderGeometry(4 * scale, 4 * scale, this.cylinderHeight, 10);
             geometry.translate(0, this.cylinderHeight / 2, 0);
             geometry.rotateX(Math.PI / 2);
-            //geometry.rotateZ(Math.PI * 2);
-            //geometry.rotateZ(Math.PI * 2);
             
 
             const material = new THREE.MeshBasicMaterial({color: 0x44aa88});
@@ -163,21 +143,9 @@ export class Snake {
             previousPartOfBody = bodySegment;
 
             this.objectOfBody.push(bodySegment);
-            if(i > 0) {
-                //bodySegment.rotation.x =  Math.PI * 2;
-            }
-
-            if( i === 0) {
-                const sphereAxis = new THREE.AxesHelper(20);
-                bodySegment.add(sphereAxis);
-                //partOfBodyGroup.rotation.x = 1.6 * Math.PI;
-                //const direction = head.position.clone().sub(bodySegment.position).normalize();
-                
-            }
             
 
         }
-        //headGroup.rotation.z =  - Math.PI / 2;
         this.animationLoop(1);
     }
 
@@ -216,22 +184,12 @@ export class Snake {
     }
 
     changeDirection(dir) {
-        if(mutuallyExclusive[this.direction].includes(dir)){
-            return;
-        }
-        this.direction = dir;
         switch(dir) {
-            case "up":
-                this.head.rotation.z = Math.PI * 2;
-                break;
             case "right":
-                this.head.rotation.z = Math.PI * 3 / 2;
-                break;
-            case "down":
-                this.head.rotation.z = Math.PI;
+                this.headGroup.rotation.z += 0.1 * this.speed;
                 break;
             case "left":
-                this.head.rotation.z = Math.PI / 2;
+                this.headGroup.rotation.z -= 0.1 * this.speed;
                 break;
         }
     }
@@ -243,27 +201,14 @@ export class Snake {
         requestAnimationFrame(this.animationLoop);
         
         //Блок с изменением цвета
-        // console.log("cos (x): " + Math.cos(this.head.rotation.z * (180 / Math.PI)));
-        // console.log("sin (y): " + Math.sin(this.head.rotation.z * (180 / Math.PI)));
+        let vec = new THREE.Vector3();
+        this.head.getWorldDirection(vec)
+        console.log(vec)
+        this.headGroup.position.y += vec.y * this.speed;
+        this.headGroup.position.x += vec.x * this.speed;
 
         this.uniforms.u_time = {type: 'float', value: 80.4};
-        
-        //this.head.position.set(this.head.position.x + vec.x * 0.3, this.head.position.y + vec.y * 0.3, 0)
-        switch(this.direction) {
-            case "up":
-                this.head.position.y += this.speed;
-                break;
-            case "right":
-                this.head.position.x += this.speed;
-                break;
-            case "down":
-                this.head.position.y -= this.speed;
-                break;
-            case "left":
-                this.head.position.x -= this.speed;
-                break;
-        }
-        //this.headGroup.position.y += 0.1;
+
 
         this.head.material = new THREE.ShaderMaterial({
             uniforms: this.uniforms,
@@ -278,10 +223,12 @@ export class Snake {
             if(index === 0)
                 return;
             const previous = arr[index - 1];
-            
+
+            let previousPosition = new THREE.Vector3();
+            previous.getWorldPosition(previousPosition);
             item.lookAt(previous.position.x, previous.position.y, previous.position.z);
-            const direction = previous.position.clone().sub(item.position).normalize().multiplyScalar(this.cylinderHeight);
-            item.position.set(previous.position.x - direction.x, previous.position.y - direction.y, previous.position.z - direction.z);
+            const direction = previousPosition.clone().sub(item.position).normalize().multiplyScalar(this.cylinderHeight);
+            item.position.set(previousPosition.x - direction.x, previousPosition.y - direction.y, previousPosition.z - direction.z);
 
         })
         
