@@ -1,3 +1,5 @@
+import { states } from "./store/appStateSlice";
+
 export class Snake {
     //ThreeJS variables
     renderer = null;
@@ -48,36 +50,43 @@ export class Snake {
         this.initScene = this.initScene.bind(this);
         this.initSnake = this.initSnake.bind(this);
         this.changeDirection = this.changeDirection.bind(this);
+        this.startGame = this.startGame.bind(this);
+        this.applyState = this.applyState.bind(this);
 
     }
 
-    initScene() {
+    applyState(state, props) {
+        
+        const currentFunction = {
+            [states.initApp]: this.initScene,
+            [states.initScene]: this.initSnake,
+            [states.initSnake]: this.startGame,
+        }
 
+        return currentFunction[state]?.(props);
+    }
+
+    initScene({textureGrass}) {
+        
         this.scene.background = new THREE.Color( 'lightblue' );
 
         this.camera.position.set( 0, 0, 100 );
         this.camera.zoom = 0.01;
         this.camera.updateProjectionMatrix();
 
-        const controls = new OrbitControls( this.camera, this.canvas );
-        controls.target.set( 0, 0, 0 );
-        controls.update();
-
         const planeSize = 20;
 
-		const loader = new THREE.TextureLoader();
-		const texture = loader.load( '/grass.png' );
-        
-		texture.wrapS = THREE.RepeatWrapping;
-		texture.wrapT = THREE.RepeatWrapping;
-		texture.magFilter = THREE.NearestFilter;
-		texture.colorSpace = THREE.SRGBColorSpace;
+
+		textureGrass.wrapS = THREE.RepeatWrapping;
+		textureGrass.wrapT = THREE.RepeatWrapping;
+		textureGrass.magFilter = THREE.NearestFilter;
+		textureGrass.colorSpace = THREE.SRGBColorSpace;
 		const repeats = planeSize / 2;
-		texture.repeat.set( repeats, repeats);
+		textureGrass.repeat.set( repeats, repeats);
 
 		const planeGeo = new THREE.PlaneGeometry( planeSize, planeSize );
 		const planeMat = new THREE.MeshPhongMaterial( {
-			map: texture,
+			map: textureGrass,
 			side: THREE.DoubleSide,
 		} );
 		const ground = new THREE.Mesh( planeGeo, planeMat );
@@ -89,10 +98,10 @@ export class Snake {
 		const light = new THREE.AmbientLight( color, intensity );
 		this.scene.add( light );
         
-
+        return Promise.resolve(states.initScene);
     }
 
-    initSnake({scale, heightOfSnake, speed}) {
+    initSnake({settings: {scale, heightOfSnake, speed}}) {
         this.speed = speed;
         this.uniforms = {
             u_time:      {type: 'float', value: Date.now()},
@@ -143,10 +152,15 @@ export class Snake {
             previousPartOfBody = bodySegment;
 
             this.objectOfBody.push(bodySegment);
-            
-
         }
+        
+        return Promise.resolve(states.initSnake);
+    }
+
+    startGame() {
         this.animationLoop(1);
+
+        return Promise.resolve(states.startGame);
     }
 
     #vertexShader() {
@@ -186,10 +200,10 @@ export class Snake {
     changeDirection(dir) {
         switch(dir) {
             case "right":
-                this.headGroup.rotation.z += 0.1 * this.speed;
+                this.headGroup && (this.headGroup.rotation.z += 0.1 * this.speed);
                 break;
             case "left":
-                this.headGroup.rotation.z -= 0.1 * this.speed;
+                this.headGroup && (this.headGroup.rotation.z -= 0.1 * this.speed);
                 break;
         }
     }
@@ -202,8 +216,8 @@ export class Snake {
         
         //Блок с изменением цвета
         let vec = new THREE.Vector3();
-        this.head.getWorldDirection(vec)
-        console.log(vec)
+        this.head.getWorldDirection(vec);
+        
         this.headGroup.position.y += vec.y * this.speed;
         this.headGroup.position.x += vec.x * this.speed;
 

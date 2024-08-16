@@ -1,83 +1,66 @@
 import Head from "next/head";
 import styles from "@/styles/Home.module.css";
 import MainLayout from "@/layout/mainLayout";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import dynamic from "next/dynamic";
+import { useDispatch, useSelector } from "react-redux";
 
-export default function Home({data}) {
-  const canvasRef = useRef(null);
-  const IsComponentMount = useRef(false);
+import { setAppState } from "@/store/appStateSlice";
+
+import { states } from "@/store/appStateSlice";
+
+const Level = dynamic(() => import('../components/level'), {
+  loading: () => null,
+})
+
+export default function Home() {
+  const dispatch = useDispatch();
+  
+  const content = useRef(null);
+
+  const settings = useRef(null);
+  const textureGrass = useRef(null);
+  const stateApp = useSelector((store) => store.appState);
+  //console.log(stateApp)
+  
+  const currentFunction = {
+    [states.initial]: async ({settings, dispatch}) => {
+      const res = await axios.get(`/settings.json`);
+      const data = res.data;
+      settings.current = data;
+      dispatch(setAppState(states.loadSettings))
+    },
+  
+    [states.loadSettings]: async ({textureGrass, dispatch}) => {
+      const THREE = await import("three");
+      window.THREE = THREE;
+  
+      const loader = new THREE.TextureLoader();
+      const texture = loader.load( '/grass.png' );
+      textureGrass.current = texture;
+      
+      dispatch(setAppState(states.loadAssets));
+    },
+  
+    [states.loadAssets]: async ({content, dispatch}) => {
+      if(!Level)
+        return;
+      dispatch(setAppState(states.initApp));
+      content.current = <Level settings={settings.current} textureGrass={textureGrass.current}/>;
+    }
+  }
 
   useEffect(() => {
-    IsComponentMount.current = true;
-
-    let snake, controller;
-
-    let isButtonPressed = false;
-
-    let animationFrameID = null;
-
-    (async () => {
-      const THREE = await import("three");
-      const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
-      
-      const {Snake} = await import("../snake.js");
-      const { gsap } = await import("gsap");
-
-      const { InputController } = await import("../input-controller.js");
-      const {actionsToBind} = await import("../actionsToBind.js");
-
-      if(!IsComponentMount.current) {
-        return;
-      }
- 
-
-      window.OrbitControls = OrbitControls;
-      window.THREE = THREE;
-      window.gsap = gsap;
-
-      snake = new Snake(canvasRef.current);
-      snake.initScene();
-      snake.initSnake(data);
-
-      canvasRef.current.focus();
-      canvasRef.current.addEventListener("click", (e) => e.target.focus());
-      controller = new InputController(structuredClone(actionsToBind), canvasRef.current);
-      canvasRef.current.addEventListener("input-controller:action-activated", (e) => {
-        if(isButtonPressed)
-          return;
-        isButtonPressed = true;
-        animateRotation(e);
-        
-      });
-      canvasRef.current.addEventListener("input-controller:action-deactivated", (e) => {
-        isButtonPressed = false;
-        cancelAnimationFrame(animationFrameID);
-      });
-
-      function animateRotation(e){
-        animationFrameID = requestAnimationFrame(() => animateRotation(e));
-        if(!isButtonPressed){
-          return;
-        }
-        snake.changeDirection(e.detail.nameAction);
-      }
-      
-    })();
-
-    return () => {
-      if(snake){
-        snake.destroy();
-        //controller.detach();
-      }
-        
-      IsComponentMount.current = false;
-    };
-  }, []);
+    currentFunction[stateApp]?.({dispatch, settings, textureGrass, content});
+  }, [Level, stateApp]);
 
 
   return (
-    <canvas id={styles["canvas-with-game"]} ref={canvasRef} tabIndex="0"></canvas>
+    <>
+      {content.current}
+    </>
+    
   );
 }
 
@@ -88,17 +71,4 @@ Home.getLayout = function getLayout(page) {
       {page}
     </MainLayout>
   )
-}
-
-export async function getServerSideProps() {
-  let data;
-  try{
-    const res = await axios.get(`http://localhost:3000/settings.json`);
-    data = res.data;
-  }
-  catch(e){
-    console.log(e)
-  }
- 
-  return { props: { data } }
 }
